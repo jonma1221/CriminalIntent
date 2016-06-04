@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -11,16 +12,22 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
 
+import java.util.Calendar;
+import java.util.Date;
 import java.util.UUID;
 /**
  * A simple {@link Fragment} subclass.
  */
 public class CrimeFragment extends Fragment {
     private static final String ARG_CRIME_ID = "crime_id";
-
+    private static final String DIALOG_DATE = "DialogDate";
+    private static final int REQUEST_DATE = 0;
+    private static final String DIALOG_Time = "DialogTime";
+    private static final int REQUEST_Time = 0;
     private Crime mCrime;
     private EditText mTitleField;
     private Button mDateButton;
+    private Button mTimeButton;
     private CheckBox mSolvedCheckBox;
 
     public CrimeFragment() {
@@ -48,7 +55,12 @@ public class CrimeFragment extends Fragment {
         UUID crimeId = (UUID) getArguments().getSerializable(ARG_CRIME_ID);
         mCrime = CrimeLab.get(getActivity()).getCrime(crimeId);
     }
-
+    @Override
+    public void onPause() {
+        super.onPause();
+        CrimeLab.get(getActivity())
+                .updateCrime(mCrime);
+    }
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -73,8 +85,17 @@ public class CrimeFragment extends Fragment {
         });
 
         mDateButton = (Button) v.findViewById(R.id.crime_date);
-        mDateButton.setText(mCrime.getmDate().toString());
-        mDateButton.setEnabled(false);
+        updateDate();
+        mDateButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                FragmentManager manager = getFragmentManager();
+                DatePickerFragment dialog = DatePickerFragment
+                        .newInstance(mCrime.getmDate());
+                dialog.setTargetFragment(CrimeFragment.this, REQUEST_DATE);
+                dialog.show(manager, DIALOG_DATE);
+            }
+        });
 
         mSolvedCheckBox = (CheckBox)v.findViewById(R.id.crime_solved);
         mSolvedCheckBox.setChecked(mCrime.ismSolved());
@@ -86,7 +107,52 @@ public class CrimeFragment extends Fragment {
             }
         });
 
+        mTimeButton = (Button) v.findViewById(R.id.crime_time);
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(mCrime.getmDate());
+        int hours = cal.get(Calendar.HOUR_OF_DAY);
+        int minutes = cal.get(Calendar.MINUTE);
+        int seconds = cal.get(Calendar.SECOND);
+        mTimeButton.setText(hours + ":" + minutes + ":" + seconds);
+        mTimeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                FragmentManager manager = getFragmentManager();
+                TimePickerFragment dialog = TimePickerFragment.newInstance(mCrime.getmDate());
+                dialog.setTargetFragment(CrimeFragment.this,REQUEST_Time);
+                dialog.show(manager, DIALOG_Time);
+            }
+        });
         return v;
     }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode != Activity.RESULT_OK) {
+            return;
+        }
+        if (requestCode == REQUEST_DATE) {
+            Date date = (Date) data
+                    .getSerializableExtra(DatePickerFragment.EXTRA_DATE);
+            mCrime.setmDate(date);
+            updateDate();
+        }
+        else if(requestCode == REQUEST_Time){
+            Date date = (Date) data
+                    .getSerializableExtra(TimePickerFragment.EXTRA_TIME);
+            mCrime.setmDate(date);
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(date);
+            int hours = cal.get(Calendar.HOUR_OF_DAY);
+            int minutes = cal.get(Calendar.MINUTE);
+            int seconds = cal.get(Calendar.SECOND);
+            mTimeButton.setText(hours + ": " + minutes + ":" + seconds);
+        }
+    }
+
+    private void updateDate() {
+        mDateButton.setText(mCrime.getmDate().toString());
+    }
+
 
 }
